@@ -290,17 +290,16 @@ enable_operator_space <- function(loaded_file, operator_spaces) {
     all_texts <- texts %>% unlist() %>% unique()
     
     
-    
     for(i in 1:length(c(symbol, operator))) {
         
         symbol_presence <- which(!is.na(stri_match(texts, regex = c(symbol, operator)[[i]][1])))
         #sapply(symbol_presence, function(x) {
-        for (x in symbol_presence) {
-            text_symbol <- which(!is.na(stri_match(texts[[x]], regex = c(symbol, operator)[[i]][1])))
+        for (y in symbol_presence) {
+            text_symbol <- which(!is.na(stri_match(texts[[y]], regex = c(symbol, operator)[[i]][1])))
             for(j in text_symbol) {
-                loaded_file[x] <- gsub(pattern = texts[[x]][j], 
+                loaded_file[y] <- gsub(pattern = texts[[y]][j], 
                                        replacement = paste('qUotEd_sTRinG', j, sep = ' '), 
-                                       x = loaded_file[x], fixed = TRUE)
+                                       x = loaded_file[y], fixed = TRUE)
             }
         }
         #})
@@ -321,14 +320,15 @@ enable_operator_space <- function(loaded_file, operator_spaces) {
             #                     x = loaded_file)
         }
         
-        for (x in symbol_presence) {
-            text_symbol <- which(!is.na(stri_match(texts[[x]], regex = c(symbol, operator)[[i]][1])))
+        for (y in symbol_presence) {
+            text_symbol <- which(!is.na(stri_match(texts[[y]], regex = c(symbol, operator)[[i]][1])))
             for (j in text_symbol) {
-                loaded_file[x] <- gsub(pattern = paste('qUotEd_sTRinG', j, sep = ' '), 
-                                       replacement = texts[[x]][j], 
-                                       x = loaded_file[x], fixed = TRUE)
+                loaded_file[y] <- gsub(pattern = paste('qUotEd_sTRinG', j, sep = ' '), 
+                                       replacement = texts[[y]][j], 
+                                       x = loaded_file[y], fixed = TRUE)
             }
         }
+        loaded_file <- gsub(pattern = '  ', replacement = ' ', x = loaded_file)
     }
     loaded_file <- gsub(pattern = '< \\-', replacement = '<-', x = loaded_file)
     loaded_file <- gsub(pattern = '=  =', replacement = '==', x = loaded_file)
@@ -338,6 +338,9 @@ enable_operator_space <- function(loaded_file, operator_spaces) {
     loaded_file <- gsub(pattern = '\\! \\=', replacement = '\\!\\=', x = loaded_file)
     loaded_file <- gsub(pattern = '> =', replacement = '>=', x = loaded_file)
     loaded_file <- gsub(pattern = '< =', replacement = '<=', x = loaded_file)
+    loaded_file <- gsub(pattern = '< <', replacement = '<<', x = loaded_file, fixed = TRUE)
+    loaded_file <- gsub(pattern = '  ', replacement = ' ', x = loaded_file)
+    loaded_file <- gsub(pattern = '  ', replacement = ' ', x = loaded_file)
     
     # return(loaded_file)
     new_code <- loaded_file %>% 

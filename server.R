@@ -87,6 +87,7 @@ shinyServer(function(input, output, session){
         shinyjs::hide(id = 'naming_score', anim = TRUE)
         shinyjs::hide(id = 'spacing_score', anim = TRUE)
         shinyjs::hide(id = 'line_length_score', anim = TRUE)
+        shinyjs::hide(id = 'line_length_num', anim = TRUE)
         shinyjs::hide(id = 'assignment_score', anim = TRUE)
         shinyjs::hide(id = 'comments_score', anim = TRUE)
         shinyjs::hide(id = 'inline_comments', anim = TRUE)
@@ -99,6 +100,7 @@ shinyServer(function(input, output, session){
         shinyjs::hide(id = 'reformat', anim = TRUE)
         shinyjs::hide(id = 'individual_results', anim = TRUE)
         
+        print(input$line_length_num)
         step <- 1 / (1 + length(files$loaded_file))
         withProgress(message = 'Evaluating Coding Standards for :', {
             scores$all <- sapply(names(files$loaded_file), function(x) {
@@ -114,9 +116,9 @@ shinyServer(function(input, output, session){
                     parsed_code <- parsed_code[[1]]
                 }
                 
-                all_scores <- code_score(loaded_file, parsed_code)
+                all_scores <- code_score(loaded_file, parsed_code, input$line_length_num)
                 return(all_scores)
-            })
+            }) %>% data.frame()
             scores$line_length <- sapply(names(files$loaded_file), function(x) {
                 loaded_file <- files$loaded_file[x]
                 while(is.list(loaded_file)) {
@@ -129,7 +131,7 @@ shinyServer(function(input, output, session){
             scores$line_length <- scores$line_length / sum(scores$line_length)
             
             scores$aggregate <- scores$all %>% 
-                as.data.frame() %>% 
+                # as.data.frame() %>% 
                 apply(., 1, function(x) 
                     round(sum(as.numeric(x) * scores$line_length, na.rm = TRUE), 2)
                 )
@@ -144,6 +146,7 @@ shinyServer(function(input, output, session){
         shinyjs::show(id = 'naming_score', anim = TRUE)
         shinyjs::show(id = 'spacing_score', anim = TRUE)
         shinyjs::show(id = 'line_length_score', anim = TRUE)
+        shinyjs::show(id = 'line_length_num', anim = TRUE)
         shinyjs::show(id = 'assignment_score', anim = TRUE)
         shinyjs::show(id = 'comments_score', anim = TRUE)
         shinyjs::show(id = 'inline_comments', anim = TRUE)
@@ -158,7 +161,46 @@ shinyServer(function(input, output, session){
         shinyjs::show(id = 'reformat_edit', anim = TRUE)
         shinyjs::hide(id = 'gif_format', anim = TRUE)
         shinyjs::hide(id = 'after_edit', anim = TRUE)
+        
+        score <<- reactiveValuesToList(x = scores)
+        
+        })
+    
+    observeEvent(input$line_length_num, {
+        if (!is.null(scores$all)) {
+            length_score <- sapply(names(files$loaded_file), function(x) {
+    
+                loaded_file <- files$loaded_file[x]
+                parsed_code <- files$parsed_code[x]
+    
+                while(is.list(loaded_file)) {
+                    loaded_file <- loaded_file[[1]]
+                }
+                while(is.list(parsed_code)) {
+                    parsed_code <- parsed_code[[1]]
+                }
+                comment_ind <- whichComments(loaded_file)
+                comments <- loaded_file[comment_ind]
+                if(length(comment_ind) > 0) {
+                    code <- loaded_file[-whichComments(loaded_file)]
+                } else {
+                    code <- loaded_file
+                }
+                masked_code <- mask_inline_comments(code)
+                length_score <- get_length_score(masked_code, input$line_length_num)
+                return(length_score)
+            })
+            scores$all['length_score',] <- length_score
+            
+            scores$aggregate <- scores$all %>% 
+                # as.data.frame() %>% 
+                apply(., 1, function(x) 
+                    round(sum(as.numeric(x) * scores$line_length, na.rm = TRUE), 2)
+                )
+        }
     })
+
+    
     
     ##### Show GIF #####
     output$gif <- renderImage({
@@ -252,10 +294,10 @@ shinyServer(function(input, output, session){
     
     output$individual_plot <- renderPlot({
         scores_df <- scores$all %>% 
-            unlist() %>% 
-            matrix(., nrow = 9) %>% 
-            data.frame() %>% 
-            set_colnames(input$code$name) %>% 
+            unlist() %>%
+            matrix(., nrow = 9) %>%
+            data.frame() %>%
+            set_colnames(input$code$name) %>%
             mutate('score_criterion' = c('pct_inline_comments',
                                          'pct_comments',
                                          'pct_commented_code',
@@ -267,9 +309,26 @@ shinyServer(function(input, output, session){
                                          'naming_aggregate_score'))
         scores_df[is.na(scores_df)] <- 0
         scores_df$aggregate <- scores$aggregate
-        scores$df <- melt(scores_df, id.vars = 'score_criterion') %>% 
+        scores_df <- melt(scores_df, id.vars = 'score_criterion') %>% 
             set_colnames(c('score_criterion', 'script_name', 'score'))
+        print('before factor')
         
+        scores_df$score_criterion <- factor(scores_df$score_criterion, 
+                                        levels = c('length_score',
+                                                   'pct_comments',
+                                                   'pct_commented_code',
+                                                   'pct_inline_comments',
+                                                   'space_score',
+                                                   'assignment_score',
+                                                   'naming_consistency_score',
+                                                   'naming_convention_score',
+                                                   'naming_aggregate_score')
+                                        )
+        print(str(scores_df))
+        scores$df <- scores_df
+        print(str(scores$df))
+        
+        print('after factor')
         plot <- ggdotchart(scores$df, x = "score_criterion", y = "score",
                            color = "script_name",                                # Color by groups
                            #sorting = "descending",                       # Sort value in descending order
@@ -284,14 +343,14 @@ shinyServer(function(input, output, session){
         return(plot)
     })
     
-    ##### Re-format #####
-    # output$filenames <- renderUI({
-    #     checkboxGroupInput(inputId = 'file_to_reformat', 
-    #                        label = h3(strong('Select the files to Reformat :')), 
-    #                        choices = input$code$name,
-    #                        selected = input$code$name
-    #     )
-    # })
+    #### Re-format #####
+    output$filenames <- renderUI({
+        checkboxGroupInput(inputId = 'file_to_reformat',
+                           label = h3(strong('Select the files to Reformat :')),
+                           choices = input$code$name,
+                           selected = input$code$name
+        )
+    })
     
     
     reformat_code <- eventReactive(input$clean_my_code, {

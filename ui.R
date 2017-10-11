@@ -55,6 +55,7 @@ body <- dashboardBody(
                 ),
                 column(width = 4, 
                        div(img(imageOutput('gif1')), style="text-align: center;"),
+                       shinyjs::hidden(numericInput(inputId = 'line_length_num', label = '', min = 70, max = 120, step = 5, value = 80)),
                        shinyjs::hidden(valueBoxOutput('line_length_score', width = 12)),
                        shinyjs::hidden(valueBoxOutput('spacing_score', width = 12)),
                        shinyjs::hidden(valueBoxOutput('assignment_score', width = 12))

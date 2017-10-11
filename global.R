@@ -19,6 +19,7 @@ library(stringi)
 library(magrittr)
 library(data.table)
 
+
 ##### Get Function and Variable Names ####
 get_function_names <- function(parsed_code) {
     function_search_list <- c("=function",
@@ -228,9 +229,9 @@ mask_inline_comments <- function(code) {
 }
 
 ##### Check Length #####
-get_length_score <- function(masked_code) {
+get_length_score <- function(masked_code, line_wd) {
     each_line_length <- nchar(masked_code)
-    length_marks <- 100 * sum(each_line_length < 80) / length(each_line_length)
+    length_marks <- 100 * sum(each_line_length < line_wd) / length(each_line_length)
     return(length_marks)
 }
 
@@ -382,7 +383,7 @@ get_naming_consistency_score <- function(parsed_code, variable_names) {
 }
 
 ##### ALL SCORES #####
-code_score <- function(loaded_file, parsed_code) {
+code_score <- function(loaded_file, parsed_code, line_wd = 80) {
     comment_ind <- whichComments(loaded_file)
     comments <- loaded_file[comment_ind]
     if(length(comment_ind) > 0) {
@@ -411,7 +412,7 @@ code_score <- function(loaded_file, parsed_code) {
         c(commented_functions, commented_variables)
     ) / length(uncommented_comments)
     
-    length_score <- get_length_score(masked_code)
+    length_score <- get_length_score(masked_code, line_wd)
     
     space_score <- get_operator_score(parsed_code)
     
